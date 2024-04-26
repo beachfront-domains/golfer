@@ -9,7 +9,7 @@ The initial purpose of this repo was to interface with Caddy's built-in API...th
 ## Prerequisites
 
 - Caddy: https://caddyserver.com
-- unzip: `brew install unzip` || `apt install unzip -y`
+- unzip: `brew install unzip` or `apt install unzip -y`
 - Deno: `curl -fsSL https://deno.land/install.sh | sh`
   - `export DENO_INSTALL="/root/.deno"`
   - `export PATH="$DENO_INSTALL/bin:$PATH"`

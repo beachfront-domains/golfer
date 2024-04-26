@@ -153,20 +153,85 @@ app.post("/api",
     /// RELOAD CADDY
     ///
 
-    const command = new Deno.Command("service", { args: ["caddy", "reload"] });
-    const { code, stderr, stdout } = await command.output();
+    if (inProduction) {
+      const command = new Deno.Command("service", { args: ["caddy", "reload"] });
+      const { code, stderr, stdout } = await command.output();
 
-    if (code === 0)
-      console.log(new TextDecoder().decode(stdout));
-    else
-      console.log(new TextDecoder().decode(stderr));
+      if (code === 0)
+        console.log(new TextDecoder().decode(stdout));
+      else
+        console.log(new TextDecoder().decode(stderr));
+    }
+
+    ///
+    /// GET TLSA
+    ///
+
+    /// ref: openssl x509 -in <certFile> -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha512 -binary | xxd -p -u -c 32
+
+    async function pipeCommands() {
+      /// NOTE
+      /// : piped commands have to be separated and processed like this in Deno
+
+      const cmd1 = new Deno.Command("openssl", {
+        args: [ "x509", "-in", certFile, "-pubkey", "-noout" ],
+        stdout: "piped"
+      });
+
+      const cmd2 = new Deno.Command("openssl", {
+        args: ["pkey", "-pubin", "-outform", "der"],
+        stdin: "piped",
+        stdout: "piped"
+      });
+
+      const cmd3 = new Deno.Command("openssl", {
+        args: ["dgst", "-sha512", "-binary"],
+        stdin: "piped",
+        stdout: "piped"
+      });
+
+      const cmd4 = new Deno.Command("xxd", {
+        args: ["-p", "-u", "-c", 32],
+        stdin: "piped",
+        stdout: "piped"
+      });
+
+      const process1 = cmd1.spawn();
+      const process2 = cmd2.spawn();
+      const process3 = cmd3.spawn();
+      const process4 = cmd4.spawn();
+
+      /// pipe output of first command to input of second command
+      await process1.stdout.pipeTo(process2.stdin);
+      await process1.status; /// ensure process completion
+
+      /// pipe output of second command to input of third command
+      await process2.stdout.pipeTo(process3.stdin);
+      await process2.status; /// ensure process completion
+
+      // pipe output of third command to input of fourth command
+      await process3.stdout.pipeTo(process4.stdin);
+      await process3.status; /// ensure process completion
+
+      /// read output from final command
+      const { stdout } = await process4.output();
+      const output = new TextDecoder().decode(stdout);
+
+      return output;
+    }
+
+    const tlsaContent = "3 1 2 " + String(await pipeCommands()).replace(/\n/g, "").trim();
 
     ///
     /// FINISH
     ///
 
     console.info(`DONE  | ${domain}\n`);
-    return context.json({ message: `Created cert and placeholder site for ${domain}!` }, 201);
+
+    return context.json({
+      message: `Created cert and placeholder site for ${domain}!`,
+      tlsa: tlsaContent
+    }, 201);
   }
 );
 
