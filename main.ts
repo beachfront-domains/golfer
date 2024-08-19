@@ -17,7 +17,7 @@ import {
 /// npm
 
 import { default as dedent } from "npm:dedent@1.5.1";
-import * as x509 from "npm:@peculiar/x509";
+import { default as x509 } from "npm:@peculiar/x509@1.10.0";
 
 /// util
 
